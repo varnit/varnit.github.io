@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volcano of Death Adventure</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #333;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            border: 8px solid #4a2a1a;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.3);
+            background-color: #000;
+            position: relative;
+        }
+        canvas {
+            display: block;
+            background-color: #87CEEB; /* Sky Blue */
+            border-radius: 6px;
+            cursor: default; /* Remove pointer cursor */
+        }
+        #modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .modal-content {
+            background: linear-gradient(145deg, #7b4a2b, #4e2f1a);
+            padding: 30px;
+            border-radius: 20px;
+            border: 5px solid #d4a778;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+        h1, h2 {
+            font-family: 'Bangers', cursive;
+            color: #ffeb3b;
+            text-shadow: 3px 3px 0 #c0392b;
+            margin: 0 0 20px 0;
+            letter-spacing: 2px;
+        }
+        h1 {
+            font-size: clamp(2rem, 10vw, 4rem);
+        }
+        h2 {
+           font-size: clamp(1.5rem, 8vw, 3rem);
+        }
+
+        #character-select {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .char-card {
+            background-color: #f0e68c;
+            border: 4px solid #c8a064;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            color: #5d4037;
+            font-weight: bold;
+        }
+
+        .char-card:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #ffeb3b;
+        }
+
+        #game-message {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: none;
+            z-index: 5;
+            text-align: center;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 6;
+            display: none; /* Hidden by default, shown by JS for touch */
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            margin: 5px;
+            font-size: 24px;
+            user-select: none;
+        }
+        
+        #restartBtn {
+            display: none; /* Hidden by default */
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-family: 'Bangers', cursive;
+            font-size: 24px;
+            color: #4e2f1a;
+            background: linear-gradient(145deg, #ffeb3b, #f9d423);
+            border: 4px solid #d4a778;
+            border-radius: 15px;
+            cursor: pointer;
+            z-index: 20;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+            transition: transform 0.2s ease;
+        }
+        #restartBtn:hover {
+            transform: translateX(-50%) scale(1.05);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="modal">
+            <div class="modal-content">
+                <h1>Volcano of Death!</h1>
+                <h2>Choose Your Character!</h2>
+                <div id="character-select">
+                    <!-- Character cards will be inserted here by JS -->
+                </div>
+            </div>
+        </div>
+        <div id="game-message"></div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="controls">
+             <button id="leftBtn" class="control-btn">&larr;</button>
+             <button id="rightBtn" class="control-btn">&rarr;</button>
+             <button id="jumpBtn" class="control-btn">&uarr;</button>
+        </div>
+        <button id="restartBtn">Restart Game</button>
+    </div>
+
+    <script>
+        // --- GAME SETUP ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const modal = document.getElementById('modal');
+        const characterSelect = document.getElementById('character-select');
+        const gameMessage = document.getElementById('game-message');
+        const controlsDiv = document.getElementById('controls');
+        const restartBtn = document.getElementById('restartBtn');
+        
+        // --- Sizing ---
+        let gameWidth, gameHeight;
+
+        function resizeGame() {
+            const containerHeight = window.innerHeight * 0.9;
+            const containerWidth = window.innerWidth * 0.9;
+            const aspectRatio = 16 / 9;
+
+            if (containerWidth / containerHeight > aspectRatio) {
+                 gameHeight = containerHeight;
+                 gameWidth = gameHeight * aspectRatio;
+            } else {
+                 gameWidth = containerWidth;
+                 gameHeight = gameWidth / aspectRatio;
+            }
+            
+            gameContainer.style.width = `${gameWidth}px`;
+            gameContainer.style.height = `${gameHeight}px`;
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
+        }
+
+        window.addEventListener('resize', resizeGame);
+        resizeGame();
+
+
+        // --- GAME STATE ---
+        const GameState = {
+            CHARACTER_SELECT: 'CHARACTER_SELECT',
+            FIND_SIGN: 'FIND_SIGN',
+            CLIMB_VOLCANO: 'CLIMB_VOLCANO',
+            AT_THE_TOP: 'AT_THE_TOP',
+            DIVE_INTO_LAVA: 'DIVE_INTO_LAVA',
+            FIND_TREASURE: 'FIND_TREASURE',
+            ESCAPE: 'ESCAPE',
+            WIN: 'WIN'
+        };
+        let currentGameState = GameState.CHARACTER_SELECT;
+
+        // --- CHARACTERS ---
+        const characters = {
+            'cool-kid': { name: 'Cool Kid', color: '#1E90FF', accessory: 'sunglasses' },
+            'steel-man': { name: 'Steel Man', color: '#C0C0C0', accessory: 'none' },
+            'kicker': { name: 'Kicker', color: '#FF4500', accessory: 'big_boots' },
+            'dodger': { name: 'Dodger', color: '#FFFF00', accessory: 'speed_lines' },
+            'cheeky-monkey': { name: 'Cheeky Monkey', color: '#A0522D', accessory: 'colorful_butt' },
+            'hulk': { name: 'Hulk', color: '#008000', accessory: 'muscles' }
+        };
+        let selectedCharacter = null;
+        
+        // --- PLAYER ---
+        const player = {
+            x: 50,
+            y: canvas.height - 60,
+            width: 40,
+            height: 60,
+            speed: 5,
+            velX: 0,
+            velY: 0,
+            jumping: false,
+            grounded: false,
+            lavaSuit: false,
+            // Animation properties
+            animState: 'idle', // 'idle', 'jumping', 'landing'
+            animTimer: 0,
+            draw: function() {
+                if (!selectedCharacter) return;
+                
+                ctx.save();
+                // Handle animation states for squash and stretch
+                let w = this.width;
+                let h = this.height;
+                let x = this.x;
+                let y = this.y;
+
+                if (this.animState === 'landing' && this.animTimer > 0) {
+                    h = this.height * 0.8;
+                    w = this.width * 1.2;
+                    y += this.height * 0.2;
+                    x -= this.width * 0.1;
+                } else if (this.animState === 'jumping' && this.animTimer > 0) {
+                    h = this.height * 1.2;
+                    w = this.width * 0.8;
+                    x += this.width * 0.1;
+                }
+
+                // Main body color
+                ctx.fillStyle = this.lavaSuit ? '#FFA500' : selectedCharacter.color;
+                ctx.fillRect(x, y, w, h);
+
+                // --- Fun Character Details ---
+
+                // Googly Eyes for all characters
+                let eyeY = y + h * 0.25;
+                let eyeLX = x + w * 0.25;
+                let eyeRX = x + w * 0.75;
+                let eyeSize = w * 0.2;
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(eyeLX, eyeY, eyeSize, 0, Math.PI * 2);
+                ctx.arc(eyeRX, eyeY, eyeSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Pupils that jiggle
+                let pupilOffsetX = this.velX * 0.2;
+                let pupilOffsetY = this.velY * 0.1;
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(eyeLX + pupilOffsetX, eyeY + pupilOffsetY, eyeSize * 0.5, 0, Math.PI * 2);
+                ctx.arc(eyeRX + pupilOffsetX, eyeY + pupilOffsetY, eyeSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+
+                // Accessories
+                ctx.fillStyle = 'black';
+                switch(selectedCharacter.accessory) {
+                    case 'sunglasses':
+                        ctx.fillRect(x + w * 0.1, y + h * 0.15, w * 0.8, h * 0.25);
+                        break;
+                    case 'big_boots':
+                        ctx.fillStyle = '#444';
+                        ctx.fillRect(x - 5, y + h * 0.9, w/2 + 10, h * 0.25);
+                        ctx.fillRect(x + w/2 - 5, y + h * 0.9, w/2 + 10, h * 0.25);
+                        break;
+                    case 'colorful_butt':
+                        ctx.fillStyle = `hsl(${new Date().getTime() % 360}, 100%, 70%)`;
+                        ctx.fillRect(x + w*0.25, y + h, w*0.5, 10);
+                        break;
+                    case 'muscles':
+                        ctx.fillStyle = '#006400';
+                        ctx.fillRect(x - 5, y + h * 0.4, 10, h * 0.4);
+                        ctx.fillRect(x + w, y + h * 0.4, 10, h * 0.4);
+                        break;
+                }
+                 if(this.lavaSuit) {
+                    ctx.fillStyle = 'cyan';
+                    ctx.fillRect(x + w * 0.1, y + h * 0.15, w * 0.8, h * 0.25);
+                 }
+                 ctx.restore();
+            }
+        };
+
+        // --- GAME OBJECTS & LEVELS ---
+        const gravity = 0.6;
+        const friction = 0.8;
+        let keys = {};
+        let platforms = [];
+        let obstacles = [];
+        let lavaLevel = canvas.height;
+        let treasureBox = {};
+
+        // --- INPUT HANDLING ---
+        document.addEventListener('keydown', e => keys[e.code] = true);
+        document.addEventListener('keyup', e => keys[e.code] = false);
+        
+        restartBtn.addEventListener('click', () => {
+            restartBtn.style.display = 'none'; // Hide the button
+            modal.style.display = 'flex'; // Show character select screen
+            currentGameState = GameState.CHARACTER_SELECT; // Reset state
+            drawCharacterSelect(); // Redraw the initial screen
+            player.lavaSuit = false; // Reset lava suit status
+        });
+
+        // On-screen controls for touch devices
+        function setupControls() {
+            if ('ontouchstart' in window) {
+                controlsDiv.style.display = 'flex';
+                const leftBtn = document.getElementById('leftBtn');
+                const rightBtn = document.getElementById('rightBtn');
+                const jumpBtn = document.getElementById('jumpBtn');
+
+                leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
+                leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+                rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
+                rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+                jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; keys['ArrowUp'] = true; keys['KeyW'] = true; });
+                jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false; });
+            }
+        }
+        setupControls();
+
+
+        // --- GAME LOGIC ---
+
+        function showMessage(text, duration = 3000) {
+            gameMessage.textContent = text;
+            gameMessage.style.display = 'block';
+            if (duration > 0) {
+              setTimeout(() => { gameMessage.style.display = 'none'; }, duration);
+            }
+        }
+        
+        function resetPlayerPosition(x, y) {
+            player.x = x;
+            player.y = y;
+            player.velX = 0;
+            player.velY = 0;
+            player.jumping = false;
+            player.grounded = true;
+        }
+        
+        function setupLevel(state) {
+            platforms = [];
+            obstacles = [];
+            switch(state) {
+                case GameState.FIND_SIGN:
+                    // Ground platform
+                    platforms.push({x: 0, y: canvas.height - 20, width: canvas.width, height: 20, color: '#228B22'});
+                    // Some simple platforms to jump on
+                    platforms.push({x: 200, y: canvas.height - 100, width: 100, height: 20, color: '#228B22'});
+                    platforms.push({x: 400, y: canvas.height - 180, width: 100, height: 20, color: '#228B22'});
+                    showMessage('Find the "Volcano of Death" sign!');
+                    resetPlayerPosition(50, canvas.height - 80);
+                    break;
+                case GameState.CLIMB_VOLCANO:
+                    platforms = []; // Clear previous platforms
+                    let platY = canvas.height - 60;
+                    let lastPlatX = canvas.width / 2;
+                    // EASIER JUMPS: Reduced horizontal distance, reduced vertical distance, wider platforms
+                    const maxHorizDist = 120; 
+                    const platWidth = 140; 
+                    for (let i = 0; i < 15; i++) {
+                       // Ensure platforms are always reachable
+                       const newX = lastPlatX + (Math.random() * maxHorizDist * 2) - maxHorizDist;
+                       // Clamp position to be within screen bounds
+                       const clampedX = Math.max(0, Math.min(newX, canvas.width - platWidth));
+                       platforms.push({
+                           x: clampedX,
+                           y: platY,
+                           width: platWidth,
+                           height: 20,
+                           color: '#8B4513' // Brown
+                       });
+                       lastPlatX = clampedX;
+                       platY -= 80; // Reduced vertical distance
+                    }
+                    showMessage('Climb to the top of the volcano!');
+                    resetPlayerPosition(platforms[0].x + 50, platforms[0].y - 60);
+                    break;
+                case GameState.FIND_TREASURE:
+                    obstacles = [];
+                    for(let i=0; i < 15; i++) {
+                       obstacles.push({
+                           x: Math.random() * canvas.width,
+                           y: Math.random() * canvas.height,
+                           radius: Math.random() * 20 + 10,
+                           speed: Math.random() * 2 + 1,
+                           type: 'bubble'
+                       });
+                    }
+                    treasureBox = {
+                        x: canvas.width / 2 - 50,
+                        y: canvas.height - 120,
+                        width: 100,
+                        height: 80,
+                        found: false
+                    };
+                    showMessage('Swim down and find the treasure!');
+                    resetPlayerPosition(canvas.width / 2, 20);
+                    player.velY = 2; // Start sinking
+                    break;
+                case GameState.ESCAPE:
+                     obstacles = [];
+                     lavaLevel = canvas.height + 100;
+                     for(let i=0; i < 25; i++) {
+                       obstacles.push({
+                           x: Math.random() * canvas.width,
+                           y: Math.random() * canvas.height,
+                           radius: Math.random() * 15 + 10,
+                           speed: Math.random() * 2 + 1,
+                           type: 'rock'
+                       });
+                    }
+                    showMessage('The Volcano is Erupting! Escape!', 0);
+                    resetPlayerPosition(player.x, player.y);
+                    break;
+            }
+        }
+
+        function changeGameState(newState) {
+            currentGameState = newState;
+            setupLevel(newState);
+        }
+        
+        // --- CHARACTER SELECTION ---
+        function populateCharacterSelect() {
+            for (const id in characters) {
+                const char = characters[id];
+                const card = document.createElement('div');
+                card.className = 'char-card';
+                card.innerHTML = `<canvas id="char-canvas-${id}" width="80" height="80"></canvas><div>${char.name}</div>`;
+                card.onclick = () => selectCharacter(id);
+                characterSelect.appendChild(card);
+
+                // Draw character preview
+                const charCanvas = document.getElementById(`char-canvas-${id}`);
+                const charCtx = charCanvas.getContext('2d');
+                charCtx.fillStyle = char.color;
+                charCtx.fillRect(10, 20, 60, 60);
+                 // Eyes
+                charCtx.fillStyle = 'white';
+                charCtx.fillRect(10 + 12, 20 + 15, 12, 12);
+                charCtx.fillRect(10 + 36, 20 + 15, 12, 12);
+                charCtx.fillStyle = 'black';
+                charCtx.fillRect(10 + 17, 20 + 20, 5, 5);
+                charCtx.fillRect(10 + 41, 20 + 20, 5, 5);
+            }
+        }
+        
+        function selectCharacter(id) {
+            selectedCharacter = characters[id];
+            modal.style.display = 'none';
+            changeGameState(GameState.FIND_SIGN);
+            gameLoop();
+        }
+
+        function drawCharacterSelect() {
+            // The modal handles this, so we just clear the canvas
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function colCheck(shapeA, shapeB) {
+            let vX = (shapeA.x + (shapeA.width / 2)) - (shapeB.x + (shapeB.width / 2)),
+                vY = (shapeA.y + (shapeA.height / 2)) - (shapeB.y + (shapeB.height / 2)),
+                hWidths = (shapeA.width / 2) + (shapeB.width / 2),
+                hHeights = (shapeA.height / 2) + (shapeB.height / 2),
+                colDir = null;
+
+            if (Math.abs(vX) < hWidths && Math.abs(vY) < hHeights) {
+                let prevPlayerBottom = (shapeA.y - shapeA.velY) + shapeA.height;
+                if (shapeA.velY >= 0 && prevPlayerBottom <= shapeB.y + 1) {
+                    colDir = "b";
+                    shapeA.y = shapeB.y - shapeA.height;
+                    shapeA.velY = 0;
+                    return colDir;
+                }
+
+                let oX = hWidths - Math.abs(vX),
+                    oY = hHeights - Math.abs(vY);
+
+                if (oX >= oY) {
+                    if (vY > 0) {
+                        colDir = "t";
+                        shapeA.y += oY;
+                        shapeA.velY = 0;
+                    } else {
+                        colDir = "b";
+                        shapeA.y -= oY;
+                        shapeA.velY = 0;
+                    }
+                } else {
+                    if (vX > 0) {
+                        colDir = "l";
+                        shapeA.x += oX;
+                    } else {
+                        colDir = "r";
+                        shapeA.x -= oX;
+                    }
+                    shapeA.velX = 0;
+                }
+            }
+            return colDir;
+        }
+
+        function updatePlayer() {
+            // Animation Timer
+            if (player.animTimer > 0) {
+                player.animTimer--;
+            } else {
+                player.animState = 'idle';
+            }
+
+            if (keys['ArrowRight'] || keys['KeyD']) {
+                if (player.velX < player.speed) player.velX++;
+            }
+            if (keys['ArrowLeft'] || keys['KeyA']) {
+                if (player.velX > -player.speed) player.velX--;
+            }
+            player.velX *= friction;
+            player.x += player.velX;
+
+            if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && !player.jumping && player.grounded) {
+                player.jumping = true;
+                player.grounded = false;
+                player.velY = -player.speed * 2.5;
+                player.animState = 'jumping'; // Trigger jump animation
+                player.animTimer = 10; // Duration of animation
+            }
+            player.velY += gravity;
+            player.y += player.velY;
+
+            player.grounded = false;
+            
+            if (currentGameState === GameState.FIND_SIGN || currentGameState === GameState.CLIMB_VOLCANO) {
+                for (let i = 0; i < platforms.length; i++) {
+                    let plat = platforms[i];
+                    let dir = colCheck(player, plat);
+
+                    if (dir === "b") {
+                        if (!player.grounded) { // Just landed
+                            player.animState = 'landing';
+                            player.animTimer = 5;
+                        }
+                        player.grounded = true;
+                        player.jumping = false;
+                    }
+                }
+            }
+            
+            if (player.x >= canvas.width - player.width) {
+                player.x = canvas.width - player.width;
+            } else if (player.x <= 0) {
+                player.x = 0;
+            }
+            
+            if (player.y >= canvas.height - player.height) {
+                if (!player.grounded) {
+                    player.animState = 'landing';
+                    player.animTimer = 5;
+                }
+                player.y = canvas.height - player.height;
+                player.jumping = false;
+                player.grounded = true;
+                player.velY = 0;
+            }
+        }
+        
+        function updateDivingPlayer() {
+            player.velX *= friction;
+            player.velY *= 0.98;
+            
+            if (keys['ArrowRight'] || keys['KeyD']) player.velX += 0.5;
+            if (keys['ArrowLeft'] || keys['KeyA']) player.velX -= 0.5;
+            
+            if (currentGameState === GameState.FIND_TREASURE) {
+                 if (keys['ArrowDown'] || keys['KeyS']) player.velY += 0.8;
+            } else if (currentGameState === GameState.ESCAPE) {
+                if (keys['ArrowUp'] || keys['KeyW'] || keys['Space']) player.velY -= 0.8;
+            }
+            
+            player.x += player.velX;
+            player.y += player.velY;
+            
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+            if (player.y < 0) {
+                 if (currentGameState === GameState.ESCAPE) {
+                     changeGameState(GameState.WIN);
+                 }
+                 player.y = 0;
+            }
+            if (player.y > canvas.height - player.height) player.y = canvas.height - player.height;
+            
+             for(let obs of obstacles){
+                let dx = player.x + player.width/2 - obs.x;
+                let dy = player.y + player.height/2 - obs.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if(distance < player.width/2 + obs.radius){
+                    player.velX *= -1;
+                    player.velY *= -1;
+                }
+             }
+        }
+        
+        function update() {
+             switch(currentGameState) {
+                case GameState.FIND_SIGN:
+                case GameState.CLIMB_VOLCANO:
+                    updatePlayer();
+                    break;
+                case GameState.FIND_TREASURE:
+                case GameState.ESCAPE:
+                     updateDivingPlayer();
+                    break;
+            }
+        }
+        
+        function draw() {
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             
+             switch(currentGameState) {
+                 case GameState.FIND_SIGN:
+                     drawFindSign();
+                     break;
+                 case GameState.CLIMB_VOLCANO:
+                     drawClimbVolcano();
+                     break;
+                 case GameState.AT_THE_TOP:
+                     drawAtTheTop();
+                     break;
+                 case GameState.DIVE_INTO_LAVA:
+                     drawDive();
+                     break;
+                 case GameState.FIND_TREASURE:
+                     drawFindTreasure();
+                     break;
+                 case GameState.ESCAPE:
+                     drawEscape();
+                     break;
+                 case GameState.WIN:
+                     drawWinScreen();
+                     break;
+             }
+        }
+        
+        function drawFindSign() {
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(canvas.width - 80, 80, 50, 0, Math.PI * 2);
+            ctx.fill();
+            
+            platforms.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+            });
+            
+            ctx.fillStyle = '#A52A2A';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width - 250, canvas.height - 20);
+            ctx.lineTo(canvas.width - 150, 100);
+            ctx.lineTo(canvas.width - 50, 100);
+            ctx.lineTo(canvas.width + 50, canvas.height - 20);
+            ctx.closePath();
+            ctx.fill();
+
+            const signX = canvas.width - 350;
+            const signY = canvas.height - 120;
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(signX + 45, signY, 10, 100);
+            ctx.fillRect(signX, signY, 100, 50);
+            ctx.fillStyle = 'white';
+            ctx.font = '12px "Bangers"';
+            ctx.textAlign = 'center';
+            ctx.fillText('VOLCANO', signX + 50, signY + 20);
+            ctx.fillText('OF DEATH', signX + 50, signY + 40);
+            
+            player.draw();
+
+            if (player.x > signX - player.width) {
+                changeGameState(GameState.CLIMB_VOLCANO);
+            }
+        }
+        
+        function drawClimbVolcano() {
+            ctx.fillStyle = '#6b2737';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#A52A2A';
+            ctx.beginPath();
+            ctx.moveTo(-100, canvas.height);
+            ctx.lineTo(canvas.width/2, 50);
+            ctx.lineTo(canvas.width + 100, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+
+            platforms.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+            });
+            
+            player.draw();
+            
+            if (player.y < 50) {
+                 changeGameState(GameState.AT_THE_TOP);
+                 canvas.style.cursor = 'pointer';
+                 canvas.addEventListener('click', handleTopButtonClick, {once: true});
+            }
+        }
+        
+        function drawAtTheTop() {
+             drawClimbVolcano();
+             ctx.fillStyle = 'rgba(0,0,0,0.7)';
+             ctx.fillRect(0,0, canvas.width, canvas.height);
+             
+             const btn = {x: canvas.width/2 - 150, y: canvas.height/2 - 50, w: 300, h: 100};
+             ctx.fillStyle = '#ff4757';
+             ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+             ctx.strokeStyle = 'white';
+             ctx.lineWidth = 5;
+             ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+             
+             ctx.fillStyle = 'white';
+             ctx.font = '30px "Bangers"';
+             ctx.textAlign = 'center';
+             ctx.fillText('PUT ON LAVA-PROOF SUIT', canvas.width/2, canvas.height/2 + 10);
+        }
+
+        function handleTopButtonClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const btn = {x: canvas.width/2 - 150, y: canvas.height/2 - 50, w: 300, h: 100};
+            if(x > btn.x && x < btn.x + btn.w && y > btn.y && y < btn.y + btn.h) {
+                player.lavaSuit = true;
+                showMessage("LAVA SUIT ON! JUMP IN!");
+                canvas.style.cursor = 'default';
+                changeGameState(GameState.DIVE_INTO_LAVA);
+            } else {
+                 canvas.addEventListener('click', handleTopButtonClick, {once: true});
+            }
+        }
+        
+        function drawDive() {
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            player.draw();
+            player.velY += gravity * 2;
+            player.y += player.velY;
+            
+            if (player.y > canvas.height) {
+                changeGameState(GameState.FIND_TREASURE);
+            }
+        }
+        
+        function drawFindTreasure() {
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            obstacles.forEach(obs => {
+                obs.y -= obs.speed;
+                if(obs.y < -obs.radius) obs.y = canvas.height + obs.radius;
+                
+                ctx.fillStyle = 'rgba(241, 196, 15, 0.7)';
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = '#ffd700';
+            ctx.fillRect(treasureBox.x, treasureBox.y, treasureBox.width, treasureBox.height);
+            ctx.fillStyle = '#b8860b';
+            ctx.fillRect(treasureBox.x, treasureBox.y + 10, treasureBox.width, 10);
+            ctx.fillRect(treasureBox.x + treasureBox.width/2 - 10, treasureBox.y + 25, 20, 20);
+
+            player.draw();
+            
+            const p_center_x = player.x + player.width/2;
+            const p_center_y = player.y + player.height/2;
+            const t_center_x = treasureBox.x + treasureBox.width/2;
+            const t_center_y = treasureBox.y + treasureBox.height/2;
+
+            if (Math.abs(p_center_x - t_center_x) < 50 && Math.abs(p_center_y - t_center_y) < 50) {
+                treasureBox.found = true;
+                changeGameState(GameState.ESCAPE);
+            }
+        }
+        
+        function drawEscape() {
+             const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+             grad.addColorStop(0, '#ff4e50');
+             grad.addColorStop(1, '#f9d423');
+             ctx.fillStyle = grad;
+             ctx.fillRect(0,0,canvas.width,canvas.height);
+
+            lavaLevel -= 1.5;
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(0, lavaLevel, canvas.width, canvas.height);
+
+            obstacles.forEach(obs => {
+                obs.y += obs.speed;
+                if(obs.y > canvas.height + obs.radius) obs.y = -obs.radius;
+                
+                ctx.fillStyle = 'rgba(44, 62, 80, 0.8)';
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            player.draw();
+
+            if (player.y > lavaLevel - player.height) {
+                 showMessage("Oh no! The lava got you!");
+                 resetPlayerPosition(canvas.width/2, player.y - 100);
+            }
+        }
+
+        function drawWinScreen() {
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+             grad.addColorStop(0, '#2980B9');
+             grad.addColorStop(1, '#6DD5FA');
+             ctx.fillStyle = grad;
+             ctx.fillRect(0,0,canvas.width,canvas.height);
+             
+             player.x = canvas.width/2 - player.width/2;
+             player.y = canvas.height/2 - player.height/2;
+             player.draw();
+
+             ctx.fillStyle = '#b2f7e4';
+             ctx.beginPath();
+             ctx.arc(player.x + player.width/2, player.y - 40, 30, 0, Math.PI * 2);
+             ctx.fill();
+             ctx.fillStyle = 'rgba(255,255,255,0.5)';
+             ctx.beginPath();
+             ctx.arc(player.x + player.width/2 - 10, player.y - 50, 10, 0, Math.PI * 2);
+             ctx.fill();
+
+
+             ctx.fillStyle = 'white';
+             ctx.font = '50px "Bangers"';
+             ctx.textAlign = 'center';
+             ctx.fillText('YOU WIN!', canvas.width / 2, 100);
+             ctx.font = '30px "Bangers"';
+             ctx.fillText('You found the Giant Emerald Pearl!', canvas.width / 2, canvas.height - 100);
+             
+             gameMessage.style.display = 'none';
+             restartBtn.style.display = 'block'; // Show the restart button
+        }
+
+
+        // --- MAIN GAME LOOP ---
+        function gameLoop() {
+            if (currentGameState !== GameState.CHARACTER_SELECT && currentGameState !== GameState.WIN) {
+               update();
+               draw();
+               requestAnimationFrame(gameLoop);
+            } else if (currentGameState === GameState.WIN) {
+               drawWinScreen();
+            }
+        }
+
+        // --- START GAME ---
+        populateCharacterSelect();
+        drawCharacterSelect();
+
+    </script>
+</body>
+</html>
