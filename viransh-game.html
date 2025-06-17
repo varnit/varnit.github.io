@@ -73,7 +73,7 @@
 
         #character-select {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, 1fr); /* Changed to 3 columns for better grid layout */
             gap: 20px;
         }
 
@@ -109,11 +109,16 @@
         }
         
         #controls {
+            display: none; /* Hidden by default, shown by JS */
             position: absolute;
-            bottom: 10px;
-            left: 10px;
+            bottom: 20px;
+            left: 20px;
             z-index: 6;
-            display: none; /* Hidden by default, shown by JS for touch */
+            display: grid;
+            grid-template-columns: repeat(3, 55px);
+            grid-template-rows: repeat(2, 55px);
+            gap: 5px;
+            opacity: 0.7;
         }
 
         .control-btn {
@@ -123,10 +128,17 @@
             color: white;
             border: 2px solid white;
             border-radius: 50%;
-            margin: 5px;
             font-size: 24px;
             user-select: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+
+        #jumpBtn { grid-column: 2; grid-row: 1; }
+        #leftBtn { grid-column: 1; grid-row: 2; }
+        #downBtn { grid-column: 2; grid-row: 2; }
+        #rightBtn { grid-column: 3; grid-row: 2; }
         
         #restartBtn {
             display: none; /* Hidden by default */
@@ -167,9 +179,10 @@
         <div id="game-message"></div>
         <canvas id="gameCanvas"></canvas>
         <div id="controls">
-             <button id="leftBtn" class="control-btn">&larr;</button>
-             <button id="rightBtn" class="control-btn">&rarr;</button>
              <button id="jumpBtn" class="control-btn">&uarr;</button>
+             <button id="leftBtn" class="control-btn">&larr;</button>
+             <button id="downBtn" class="control-btn">&darr;</button>
+             <button id="rightBtn" class="control-btn">&rarr;</button>
         </div>
         <button id="restartBtn">Restart Game</button>
     </div>
@@ -231,7 +244,11 @@
             'kicker': { name: 'Kicker', color: '#FF4500', accessory: 'big_boots' },
             'dodger': { name: 'Dodger', color: '#FFFF00', accessory: 'speed_lines' },
             'cheeky-monkey': { name: 'Cheeky Monkey', color: '#A0522D', accessory: 'colorful_butt' },
-            'hulk': { name: 'Hulk', color: '#008000', accessory: 'muscles' }
+            'hulk': { name: 'Hulk', color: '#008000', accessory: 'muscles' },
+            'mustache-man': { name: 'Mustache Man', color: '#8B4513', accessory: 'mustache' },
+            'kitty': { name: 'Kitty 🙀', color: '#FFB6C1', accessory: 'ears' },
+            'titanium-boy': { name: 'Titanium Boy 👦', color: '#87A9B4', accessory: 'jetpack' },
+            'farter': { name: 'Farter', color: '#D2B48C', accessory: 'fart_cloud' }
         };
         let selectedCharacter = null;
         
@@ -318,6 +335,57 @@
                         ctx.fillRect(x - 5, y + h * 0.4, 10, h * 0.4);
                         ctx.fillRect(x + w, y + h * 0.4, 10, h * 0.4);
                         break;
+                    case 'mustache':
+                        ctx.fillStyle = 'black';
+                        ctx.fillRect(x + w * 0.2, y + h * 0.5, w * 0.6, h * 0.15);
+                        ctx.beginPath();
+                        ctx.arc(x + w * 0.2, y + h * 0.5 + h * 0.075, w * 0.1, 0, Math.PI, false);
+                        ctx.arc(x + w * 0.8, y + h * 0.5 + h * 0.075, w * 0.1, 0, Math.PI, false);
+                        ctx.fill();
+                        break;
+                    case 'ears':
+                        ctx.fillStyle = selectedCharacter.color;
+                        ctx.beginPath();
+                        // Left Ear
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + w * 0.3, y);
+                        ctx.lineTo(x, y - h * 0.3);
+                        ctx.closePath();
+                        ctx.fill();
+                        // Right Ear
+                        ctx.moveTo(x + w, y);
+                        ctx.lineTo(x + w * 0.7, y);
+                        ctx.lineTo(x + w, y - h * 0.3);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'jetpack':
+                        ctx.fillStyle = '#555555'; // Dark grey for the pack
+                        ctx.fillRect(x - 10, y + h * 0.2, 10, h * 0.6); // Main body of the pack
+                        // Nozzles
+                        ctx.fillStyle = '#777777';
+                        ctx.fillRect(x - 12, y + h * 0.8, 14, h * 0.15);
+                        // Flame when jumping
+                        if (this.animState === 'jumping') {
+                            ctx.fillStyle = `rgba(255, ${Math.random()*150}, 0, 0.8)`;
+                            ctx.beginPath();
+                            ctx.moveTo(x - 5, y + h * 0.95);
+                            ctx.lineTo(x + 2, y + h + Math.random() * 20 + 5);
+                            ctx.lineTo(x - 12, y + h + Math.random() * 20 + 5);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                        break;
+                    case 'fart_cloud':
+                        if (this.animState === 'jumping') {
+                           ctx.fillStyle = `rgba(144, 238, 144, ${Math.random() * 0.5 + 0.3})`;
+                           ctx.beginPath();
+                           ctx.arc(x + w/2, y + h + 10, 15, 0, Math.PI*2);
+                           ctx.arc(x + w/2 - 10, y + h + 15, 10, 0, Math.PI*2);
+                           ctx.arc(x + w/2 + 10, y + h + 15, 10, 0, Math.PI*2);
+                           ctx.fill();
+                        }
+                        break;
                 }
                  if(this.lavaSuit) {
                     ctx.fillStyle = 'cyan';
@@ -351,17 +419,23 @@
         // On-screen controls for touch devices
         function setupControls() {
             if ('ontouchstart' in window) {
-                controlsDiv.style.display = 'flex';
+                controlsDiv.style.display = 'grid'; // Changed to grid to make it visible
                 const leftBtn = document.getElementById('leftBtn');
                 const rightBtn = document.getElementById('rightBtn');
                 const jumpBtn = document.getElementById('jumpBtn');
+                const downBtn = document.getElementById('downBtn');
 
                 leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
                 leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+                
                 rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
                 rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+                
                 jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; keys['ArrowUp'] = true; keys['KeyW'] = true; });
                 jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; keys['ArrowUp'] = false; keys['KeyW'] = false; });
+
+                downBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowDown'] = true; keys['KeyS'] = true; });
+                downBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowDown'] = false; keys['KeyS'] = false; });
             }
         }
         setupControls();
@@ -471,6 +545,7 @@
         
         // --- CHARACTER SELECTION ---
         function populateCharacterSelect() {
+            characterSelect.innerHTML = ''; // Clear existing characters before repopulating
             for (const id in characters) {
                 const char = characters[id];
                 const card = document.createElement('div');
@@ -478,6 +553,7 @@
                 card.innerHTML = `<canvas id="char-canvas-${id}" width="80" height="80"></canvas><div>${char.name}</div>`;
                 card.onclick = () => selectCharacter(id);
                 characterSelect.appendChild(card);
+                
 
                 // Draw character preview
                 const charCanvas = document.getElementById(`char-canvas-${id}`);
@@ -504,6 +580,7 @@
         function drawCharacterSelect() {
             // The modal handles this, so we just clear the canvas
              ctx.clearRect(0, 0, canvas.width, canvas.height);
+             populateCharacterSelect(); // Ensure character list is up-to-date
         }
         
         function colCheck(shapeA, shapeB) {
