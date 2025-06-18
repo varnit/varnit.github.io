@@ -73,8 +73,8 @@
 
         #character-select {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* Changed to 3 columns for better grid layout */
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr); /* Accommodate more characters */
+            gap: 15px;
         }
 
         .char-card {
@@ -86,6 +86,7 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             color: #5d4037;
             font-weight: bold;
+            font-size: 0.9em;
         }
 
         .char-card:hover {
@@ -233,7 +234,8 @@
             DIVE_INTO_LAVA: 'DIVE_INTO_LAVA',
             FIND_TREASURE: 'FIND_TREASURE',
             ESCAPE: 'ESCAPE',
-            WIN: 'WIN'
+            WIN: 'WIN',
+            LOSE: 'LOSE'
         };
         let currentGameState = GameState.CHARACTER_SELECT;
 
@@ -248,7 +250,9 @@
             'mustache-man': { name: 'Mustache Man', color: '#8B4513', accessory: 'mustache' },
             'kitty': { name: 'Kitty 🙀', color: '#FFB6C1', accessory: 'ears' },
             'titanium-boy': { name: 'Titanium Boy 👦', color: '#87A9B4', accessory: 'jetpack' },
-            'farter': { name: 'Farter', color: '#D2B48C', accessory: 'fart_cloud' }
+            'farter': { name: 'Farter', color: '#D2B48C', accessory: 'fart_cloud' },
+            'viransh': { name: 'Viransh 🚀', color: '#FFD700', accessory: 'rocket' },
+            'zing': { name: 'Zing', color: '#9C27B0', accessory: 'lightning' }
         };
         let selectedCharacter = null;
         
@@ -385,6 +389,56 @@
                            ctx.arc(x + w/2 + 10, y + h + 15, 10, 0, Math.PI*2);
                            ctx.fill();
                         }
+                        break;
+                    case 'rocket':
+                        // Main rocket body
+                        ctx.fillStyle = '#e53935'; // Red color
+                        ctx.beginPath();
+                        ctx.moveTo(x - 12, y + h * 0.8); // Bottom left
+                        ctx.lineTo(x - 12, y + h * 0.2); // Top left
+                        ctx.lineTo(x - 5, y + h * 0.1); // Tip point
+                        ctx.lineTo(x + 2, y + h * 0.2);  // Top right
+                        ctx.lineTo(x + 2, y + h * 0.8);  // Bottom right
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // Window
+                        ctx.fillStyle = '#81D4FA'; // Light blue
+                        ctx.beginPath();
+                        ctx.arc(x - 5, y + h * 0.4, w * 0.15, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Fin
+                        ctx.fillStyle = '#9E9E9E'; // Grey
+                        ctx.beginPath();
+                        ctx.moveTo(x-12, y + h * 0.6);
+                        ctx.lineTo(x-20, y + h * 0.9);
+                        ctx.lineTo(x-12, y + h * 0.9);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        // Flame when jumping
+                        if (this.animState === 'jumping') {
+                            ctx.fillStyle = `rgba(255, ${Math.random()*150 + 100}, 0, 0.9)`;
+                            ctx.beginPath();
+                            ctx.moveTo(x - 5, y + h * 0.8);
+                            ctx.lineTo(x - 10, y + h + Math.random() * 20 + 5);
+                            ctx.lineTo(x, y + h + Math.random() * 20 + 5);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                        break;
+                    case 'lightning':
+                        ctx.fillStyle = 'yellow';
+                        ctx.strokeStyle = 'orange';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(x + w + 5, y + h * 0.2);
+                        ctx.lineTo(x + w - 10, y + h * 0.5);
+                        ctx.lineTo(x + w, y + h * 0.5);
+                        ctx.lineTo(x + w - 15, y + h * 0.8);
+                        ctx.fill();
+                        ctx.stroke();
                         break;
                 }
                  if(this.lavaSuit) {
@@ -540,7 +594,9 @@
 
         function changeGameState(newState) {
             currentGameState = newState;
-            setupLevel(newState);
+            if (newState !== GameState.WIN && newState !== GameState.LOSE) {
+              setupLevel(newState);
+            }
         }
         
         // --- CHARACTER SELECTION ---
@@ -764,6 +820,9 @@
                  case GameState.WIN:
                      drawWinScreen();
                      break;
+                 case GameState.LOSE:
+                     drawLoseScreen();
+                     break;
              }
         }
         
@@ -917,7 +976,7 @@
              ctx.fillStyle = grad;
              ctx.fillRect(0,0,canvas.width,canvas.height);
 
-            lavaLevel -= 1.5;
+            lavaLevel -= 3.5; // Increased lava speed
             ctx.fillStyle = '#c0392b';
             ctx.fillRect(0, lavaLevel, canvas.width, canvas.height);
 
@@ -933,9 +992,8 @@
             
             player.draw();
 
-            if (player.y > lavaLevel - player.height) {
-                 showMessage("Oh no! The lava got you!");
-                 resetPlayerPosition(canvas.width/2, player.y - 100);
+            if (player.y + player.height > lavaLevel) {
+                 changeGameState(GameState.LOSE);
             }
         }
 
@@ -972,15 +1030,41 @@
              restartBtn.style.display = 'block'; // Show the restart button
         }
 
+        function drawLoseScreen() {
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+             grad.addColorStop(0, '#555555');
+             grad.addColorStop(1, '#000000');
+             ctx.fillStyle = grad;
+             ctx.fillRect(0,0,canvas.width,canvas.height);
+             
+             player.x = canvas.width/2 - player.width/2;
+             player.y = canvas.height/2 - player.height/2;
+             player.lavaSuit = true; // Show sizzle
+             player.draw();
+
+             ctx.fillStyle = 'white';
+             ctx.font = '50px "Bangers"';
+             ctx.textAlign = 'center';
+             ctx.fillText('YOU LOSE!', canvas.width / 2, 100);
+             ctx.font = '30px "Bangers"';
+             ctx.fillText('The lava was too hot!', canvas.width / 2, canvas.height - 100);
+             
+             gameMessage.style.display = 'none';
+             restartBtn.style.display = 'block';
+        }
+
 
         // --- MAIN GAME LOOP ---
         function gameLoop() {
-            if (currentGameState !== GameState.CHARACTER_SELECT && currentGameState !== GameState.WIN) {
+            if (currentGameState !== GameState.CHARACTER_SELECT && currentGameState !== GameState.WIN && currentGameState !== GameState.LOSE) {
                update();
                draw();
                requestAnimationFrame(gameLoop);
             } else if (currentGameState === GameState.WIN) {
                drawWinScreen();
+            } else if (currentGameState === GameState.LOSE) {
+                drawLoseScreen();
             }
         }
 
